@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// 환경변수 로드
+import 'dotenv/config';
+
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -210,6 +213,50 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ['projectId', 'subject'],
         },
       },
+      {
+        name: 'dooray_update_task',
+        description: '기존 업무를 수정합니다',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            projectId: {
+              type: 'string',
+              description: '업무가 있는 프로젝트 ID',
+            },
+            postId: {
+              type: 'string',
+              description: '수정할 업무의 ID',
+            },
+            subject: {
+              type: 'string',
+              description: '새로운 업무 제목 (선택사항)',
+            },
+            body: {
+              type: 'string',
+              description: '새로운 업무 내용 (선택사항)',
+            },
+          },
+          required: ['projectId', 'postId'],
+        },
+      },
+      {
+        name: 'dooray_get_task',
+        description: '특정 업무의 상세 정보를 조회합니다',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            projectId: {
+              type: 'string',
+              description: '업무가 있는 프로젝트 ID',
+            },
+            postId: {
+              type: 'string',
+              description: '조회할 업무의 ID',
+            },
+          },
+          required: ['projectId', 'postId'],
+        },
+      },
     ],
   };
 });
@@ -252,6 +299,26 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
           args.projectId as string,
           args.subject as string,
           args.body as string
+        );
+
+      case 'dooray_update_task':
+        if (!args?.projectId || !args?.postId) {
+          throw new Error('projectId와 postId가 필요합니다');
+        }
+        return await doorayClient.updateTask(
+          args.projectId as string,
+          args.postId as string,
+          args.subject as string,
+          args.body as string
+        );
+
+      case 'dooray_get_task':
+        if (!args?.projectId || !args?.postId) {
+          throw new Error('projectId와 postId가 필요합니다');
+        }
+        return await doorayClient.getTask(
+          args.projectId as string,
+          args.postId as string
         );
 
       default:

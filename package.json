@@ -19,7 +19,13 @@
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run clean && npm run build"
   },
-  "keywords": ["mcp", "dooray", "api", "model-context-protocol", "nhn"],
+  "keywords": [
+    "mcp",
+    "dooray",
+    "api",
+    "model-context-protocol",
+    "nhn"
+  ],
   "author": "NHN",
   "license": "MIT",
   "repository": {
@@ -29,6 +35,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.4.0",
     "axios": "^1.6.2",
+    "dotenv": "^17.2.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
@@ -39,4 +46,4 @@
   "engines": {
     "node": ">=18"
   }
-} 
+}

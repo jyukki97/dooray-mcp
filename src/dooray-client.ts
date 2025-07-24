@@ -241,10 +241,17 @@ export class DoorayApiClient {
    */
   async createTask(projectId: string, subject: string, body?: string) {
     try {
-      const taskData = {
+      const taskData: any = {
         subject,
-        body: body || '',
       };
+
+      // body가 제공된 경우에만 추가
+      if (body) {
+        taskData.body = {
+          mimeType: 'text/html',
+          content: body
+        };
+      }
 
       const response = await this.client.post(`/project/v1/projects/${projectId}/posts`, taskData);
       
@@ -270,6 +277,101 @@ export class DoorayApiClient {
       };
     } catch (error) {
       throw new Error(`업무 생성 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+    }
+  }
+
+  /**
+   * 기존 업무를 수정합니다
+   */
+  async updateTask(projectId: string, postId: string, subject?: string, body?: string) {
+    try {
+      const updateData: any = {};
+      
+      if (subject) {
+        updateData.subject = subject;
+      }
+      
+      if (body) {
+        updateData.body = {
+          mimeType: 'text/html',
+          content: body
+        };
+      }
+
+      const response = await this.client.put(`/project/v1/projects/${projectId}/posts/${postId}`, updateData);
+      
+      if (!response.data.header?.isSuccessful) {
+        throw new Error(`API 오류: ${response.data.header?.resultMessage || '알 수 없는 오류'}`);
+      }
+      
+      const updatedTask = response.data.result;
+      
+      // 응답이 null이거나 빈 경우 처리
+      if (!updatedTask) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `**업무가 수정되었습니다!**\n\n` +
+                    `**프로젝트 ID:** ${projectId}\n` +
+                    `**업무 ID:** ${postId}\n` +
+                    `**수정 완료:** 업무가 성공적으로 업데이트되었습니다.`
+            }
+          ]
+        };
+      }
+      
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `**업무가 수정되었습니다!**\n\n` +
+                  `**제목:** ${updatedTask.subject || 'N/A'}\n` +
+                  `**번호:** #${updatedTask.number || 'N/A'}\n` +
+                  `**ID:** ${updatedTask.id || postId}\n` +
+                  `**완료상태:** ${updatedTask.closed ? '완료' : '진행중'}\n` +
+                  `**우선순위:** ${updatedTask.priority || 'N/A'}\n` +
+                  `**수정일:** ${updatedTask.updatedAt ? new Date(updatedTask.updatedAt).toLocaleDateString('ko-KR') : '알 수 없음'}`
+          }
+        ]
+      };
+    } catch (error) {
+      throw new Error(`업무 수정 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+    }
+  }
+
+  /**
+   * 특정 업무의 상세 정보를 가져옵니다
+   */
+  async getTask(projectId: string, postId: string) {
+    try {
+      const response = await this.client.get(`/project/v1/projects/${projectId}/posts/${postId}`);
+      
+      if (!response.data.header?.isSuccessful) {
+        throw new Error(`API 오류: ${response.data.header?.resultMessage || '알 수 없는 오류'}`);
+      }
+      
+      const task = response.data.result;
+      
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `**업무 상세 정보**\n\n` +
+                  `**제목:** ${task.subject}\n` +
+                  `**번호:** #${task.number}\n` +
+                  `**ID:** ${task.id}\n` +
+                  `**내용:** ${task.body?.content || '내용 없음'}\n` +
+                  `**완료상태:** ${task.closed ? '완료' : '진행중'}\n` +
+                  `**우선순위:** ${task.priority || 'N/A'}\n` +
+                  `**생성일:** ${new Date(task.createdAt).toLocaleDateString('ko-KR')}\n` +
+                  `**수정일:** ${new Date(task.updatedAt).toLocaleDateString('ko-KR')}\n` +
+                  `**작성자:** ${task.users?.from?.member?.name || task.users?.from?.name || 'N/A'}`
+          }
+        ]
+      };
+    } catch (error) {
+      throw new Error(`업무 조회 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
     }
   }
 } 
