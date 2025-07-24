@@ -201,7 +201,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'dooray_search_tasks',
-        description: '프로젝트의 태스크를 고급 필터링과 페이징으로 검색합니다',
+        description: '프로젝트의 태스크를 고급 필터링과 페이징으로 검색합니다 (실제 Dooray API 명세)',
         inputSchema: {
           type: 'object',
           properties: {
@@ -217,57 +217,65 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: 'number',
               description: '페이지 크기 (기본값: 20, 최대: 100)',
             },
-            q: {
+            fromEmailAddress: {
               type: 'string',
-              description: '검색 키워드 (제목, 내용 검색)',
+              description: 'From 이메일 주소로 업무 필터링',
             },
-            assigneeId: {
+            fromMemberIds: {
               type: 'string',
-              description: '담당자 ID',
+              description: '특정 멤버가 작성한 업무 목록 (쉼표로 구분)',
             },
-            status: {
+            toMemberIds: {
               type: 'string',
-              description: '상태 (registered, working, closed)',
-              enum: ['registered', 'working', 'closed'],
+              description: '특정 멤버가 담당자인 업무 목록 (쉼표로 구분)',
             },
-            priority: {
+            ccMemberIds: {
               type: 'string',
-              description: '우선순위 (urgent, high, normal, low)',
-              enum: ['urgent', 'high', 'normal', 'low'],
+              description: '특정 멤버가 참조자인 업무 목록 (쉼표로 구분)',
             },
-            milestoneId: {
+            tagIds: {
               type: 'string',
-              description: '마일스톤 ID',
+              description: '특정 태그가 붙은 업무 목록 (쉼표로 구분)',
             },
-            tagId: {
+            parentPostId: {
               type: 'string',
-              description: '태그 ID',
+              description: '특정 업무의 하위 업무 목록',
             },
-            createdAtFrom: {
+            postNumber: {
               type: 'string',
-              description: '생성일 시작 (ISO 8601 형식, 예: 2024-01-01T00:00:00Z)',
+              description: '특정 업무의 번호',
             },
-            createdAtTo: {
+            postWorkflowClasses: {
               type: 'string',
-              description: '생성일 종료 (ISO 8601 형식, 예: 2024-12-31T23:59:59Z)',
+              description: '워크플로우 상태 (backlog, registered, working, closed - 쉼표로 구분)',
             },
-            updatedAtFrom: {
+            postWorkflowIds: {
               type: 'string',
-              description: '수정일 시작 (ISO 8601 형식)',
+              description: '해당 프로젝트에 정의된 workflowId로 필터 (쉼표로 구분)',
             },
-            updatedAtTo: {
+            milestoneIds: {
               type: 'string',
-              description: '수정일 종료 (ISO 8601 형식)',
+              description: '마일스톤 ID 기준 필터 (쉼표로 구분)',
             },
-            sort: {
+            subjects: {
               type: 'string',
-              description: '정렬 기준 (createdAt, updatedAt, priority, dueDate)',
-              enum: ['createdAt', 'updatedAt', 'priority', 'dueDate'],
+              description: '업무 제목으로 필터',
+            },
+            createdAt: {
+              type: 'string',
+              description: '생성시간 기준 필터 (today, thisweek, prev-3d, next-7d, 또는 ISO8601 범위)',
+            },
+            updatedAt: {
+              type: 'string',
+              description: '업데이트 기준 필터 (today, thisweek, prev-3d, next-7d, 또는 ISO8601 범위)',
+            },
+            dueAt: {
+              type: 'string',
+              description: '만기시간 기준 필터 (today, thisweek, prev-3d, next-7d, 또는 ISO8601 범위)',
             },
             order: {
               type: 'string',
-              description: '정렬 순서 (asc, desc)',
-              enum: ['asc', 'desc'],
+              description: '정렬 조건 (postDueAt, postUpdatedAt, createdAt - 역순은 앞에 - 붙임)',
             },
           },
           required: ['projectId'],
@@ -381,18 +389,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
         const filters = {
           page: args.page as number,
           size: args.size as number,
-          q: args.q as string,
-          assigneeId: args.assigneeId as string,
-          status: args.status as 'registered' | 'working' | 'closed',
-          priority: args.priority as 'urgent' | 'high' | 'normal' | 'low',
-          milestoneId: args.milestoneId as string,
-          tagId: args.tagId as string,
-          createdAtFrom: args.createdAtFrom as string,
-          createdAtTo: args.createdAtTo as string,
-          updatedAtFrom: args.updatedAtFrom as string,
-          updatedAtTo: args.updatedAtTo as string,
-          sort: args.sort as 'createdAt' | 'updatedAt' | 'priority' | 'dueDate',
-          order: args.order as 'asc' | 'desc',
+          fromEmailAddress: args.fromEmailAddress as string,
+          fromMemberIds: args.fromMemberIds as string,
+          toMemberIds: args.toMemberIds as string,
+          ccMemberIds: args.ccMemberIds as string,
+          tagIds: args.tagIds as string,
+          parentPostId: args.parentPostId as string,
+          postNumber: args.postNumber as string,
+          postWorkflowClasses: args.postWorkflowClasses as string,
+          postWorkflowIds: args.postWorkflowIds as string,
+          milestoneIds: args.milestoneIds as string,
+          subjects: args.subjects as string,
+          createdAt: args.createdAt as string,
+          updatedAt: args.updatedAt as string,
+          dueAt: args.dueAt as string,
+          order: args.order as string,
         };
         return await doorayClient.searchTasks(args.projectId as string, filters);
 

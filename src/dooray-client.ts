@@ -26,23 +26,33 @@ type Project = z.infer<typeof ProjectSchema>;
 type Task = z.infer<typeof TaskSchema>;
 
 /**
- * 태스크 검색 필터 인터페이스
+ * 태스크 검색 필터 인터페이스 (실제 Dooray API 명세 기준)
  */
 interface TaskSearchFilters {
+  // 페이징 조건
   page?: number;                    // 페이지 번호 (기본값: 0)
   size?: number;                    // 페이지 크기 (기본값: 20, 최대: 100)
-  q?: string;                      // 검색 키워드 (제목, 내용 검색)
-  assigneeId?: string;             // 담당자 ID
-  status?: 'registered' | 'working' | 'closed'; // 상태
-  priority?: 'urgent' | 'high' | 'normal' | 'low'; // 우선순위
-  milestoneId?: string;            // 마일스톤 ID
-  tagId?: string;                  // 태그 ID
-  createdAtFrom?: string;          // 생성일 시작 (ISO 8601 형식)
-  createdAtTo?: string;            // 생성일 종료 (ISO 8601 형식)
-  updatedAtFrom?: string;          // 수정일 시작 (ISO 8601 형식)
-  updatedAtTo?: string;            // 수정일 종료 (ISO 8601 형식)
-  sort?: 'createdAt' | 'updatedAt' | 'priority' | 'dueDate'; // 정렬 기준
-  order?: 'asc' | 'desc';          // 정렬 순서
+  
+  // 필터 조건
+  fromEmailAddress?: string;        // From 이메일 주소로 업무 필터링
+  fromMemberIds?: string;           // 특정 멤버가 작성한 업무 목록 (쉼표로 구분)
+  toMemberIds?: string;             // 특정 멤버가 담당자인 업무 목록 (쉼표로 구분)
+  ccMemberIds?: string;             // 특정 멤버가 참조자인 업무 목록 (쉼표로 구분)
+  tagIds?: string;                  // 특정 태그가 붙은 업무 목록 (쉼표로 구분)
+  parentPostId?: string;            // 특정 업무의 하위 업무 목록
+  postNumber?: string;              // 특정 업무의 번호
+  postWorkflowClasses?: string;     // backlog, registered, working, closed (쉼표로 구분)
+  postWorkflowIds?: string;         // 해당 프로젝트에 정의된 workflowId로 필터 (쉼표로 구분)
+  milestoneIds?: string;            // 마일스톤 ID 기준 필터 (쉼표로 구분)
+  subjects?: string;                // 업무 제목으로 필터
+  
+  // 날짜 필터 (DATE_PATTERN 지원)
+  createdAt?: string;               // 생성시간 기준 필터 (today, thisweek, prev-3d, next-7d, ISO8601 범위)
+  updatedAt?: string;               // 업데이트 기준 필터
+  dueAt?: string;                   // 만기시간 기준 필터
+  
+  // 정렬 조건
+  order?: string;                   // postDueAt, postUpdatedAt, createdAt (역순은 앞에 - 붙임)
 }
 
 export class DoorayApiClient {
@@ -407,7 +417,7 @@ export class DoorayApiClient {
   }
 
   /**
-   * 프로젝트의 태스크를 검색합니다 (필터링 및 페이징 지원)
+   * 프로젝트의 태스크를 검색합니다 (실제 Dooray API 명세 기준)
    */
   async searchTasks(projectId: string, filters: TaskSearchFilters = {}) {
     try {
@@ -415,38 +425,45 @@ export class DoorayApiClient {
       const {
         page = 0,
         size = 20,
-        q,
-        assigneeId,
-        status,
-        priority,
-        milestoneId,
-        tagId,
-        createdAtFrom,
-        createdAtTo,
-        updatedAtFrom,
-        updatedAtTo,
-        sort = 'updatedAt',
-        order = 'desc'
+        fromEmailAddress,
+        fromMemberIds,
+        toMemberIds,
+        ccMemberIds,
+        tagIds,
+        parentPostId,
+        postNumber,
+        postWorkflowClasses,
+        postWorkflowIds,
+        milestoneIds,
+        subjects,
+        createdAt,
+        updatedAt,
+        dueAt,
+        order = '-updatedAt'
       } = filters;
 
       // API 파라미터 구성
       const params: any = {
         page,
-        size: Math.min(size, 100), // 최대 100개로 제한
-        sort: `${sort},${order}`
+        size: Math.min(size, 100) // 최대 100개로 제한
       };
 
       // 조건별 파라미터 추가
-      if (q) params.q = q;
-      if (assigneeId) params.assigneeId = assigneeId;
-      if (status) params.status = status;
-      if (priority) params.priority = priority;
-      if (milestoneId) params.milestoneId = milestoneId;
-      if (tagId) params.tagId = tagId;
-      if (createdAtFrom) params.createdAtFrom = createdAtFrom;
-      if (createdAtTo) params.createdAtTo = createdAtTo;
-      if (updatedAtFrom) params.updatedAtFrom = updatedAtFrom;
-      if (updatedAtTo) params.updatedAtTo = updatedAtTo;
+      if (fromEmailAddress) params.fromEmailAddress = fromEmailAddress;
+      if (fromMemberIds) params.fromMemberIds = fromMemberIds;
+      if (toMemberIds) params.toMemberIds = toMemberIds;
+      if (ccMemberIds) params.ccMemberIds = ccMemberIds;
+      if (tagIds) params.tagIds = tagIds;
+      if (parentPostId) params.parentPostId = parentPostId;
+      if (postNumber) params.postNumber = postNumber;
+      if (postWorkflowClasses) params.postWorkflowClasses = postWorkflowClasses;
+      if (postWorkflowIds) params.postWorkflowIds = postWorkflowIds;
+      if (milestoneIds) params.milestoneIds = milestoneIds;
+      if (subjects) params.subjects = subjects;
+      if (createdAt) params.createdAt = createdAt;
+      if (updatedAt) params.updatedAt = updatedAt;
+      if (dueAt) params.dueAt = dueAt;
+      if (order) params.order = order;
 
       console.log(`🔍 태스크 검색 중... 프로젝트: ${projectId}, 파라미터:`, params);
 
@@ -473,14 +490,20 @@ export class DoorayApiClient {
         text += `검색 조건에 맞는 태스크가 없습니다.\n\n`;
       } else {
         text += `**🔍 적용된 필터:**\n`;
-        if (q) text += `- 키워드: "${q}"\n`;
-        if (status) text += `- 상태: ${status}\n`;
-        if (priority) text += `- 우선순위: ${priority}\n`;
-        if (assigneeId) text += `- 담당자 ID: ${assigneeId}\n`;
-        if (createdAtFrom || createdAtTo) {
-          text += `- 생성일: ${createdAtFrom || '시작일 없음'} ~ ${createdAtTo || '종료일 없음'}\n`;
-        }
-        text += `- 정렬: ${sort} (${order})\n\n`;
+        if (subjects) text += `- 제목 키워드: "${subjects}"\n`;
+        if (postWorkflowClasses) text += `- 워크플로우 상태: ${postWorkflowClasses}\n`;
+        if (toMemberIds) text += `- 담당자 ID: ${toMemberIds}\n`;
+        if (fromMemberIds) text += `- 작성자 ID: ${fromMemberIds}\n`;
+        if (ccMemberIds) text += `- 참조자 ID: ${ccMemberIds}\n`;
+        if (tagIds) text += `- 태그 ID: ${tagIds}\n`;
+        if (milestoneIds) text += `- 마일스톤 ID: ${milestoneIds}\n`;
+        if (parentPostId) text += `- 상위 업무 ID: ${parentPostId}\n`;
+        if (postNumber) text += `- 업무 번호: ${postNumber}\n`;
+        if (createdAt) text += `- 생성일 필터: ${createdAt}\n`;
+        if (updatedAt) text += `- 수정일 필터: ${updatedAt}\n`;
+        if (dueAt) text += `- 만기일 필터: ${dueAt}\n`;
+        if (fromEmailAddress) text += `- 작성자 이메일: ${fromEmailAddress}\n`;
+        text += `- 정렬: ${order}\n\n`;
 
         tasks.forEach((task: any, index: number) => {
           const taskNumber = (currentPage * pageSize) + index + 1;

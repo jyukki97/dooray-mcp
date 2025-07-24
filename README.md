@@ -41,7 +41,7 @@ NHN Dooray 프로젝트 관리 서비스와 AI 어시스턴트를 연결해주�
 | `dooray_update_task` | 업무 수정 | `projectId`, `postId`, `subject?`, `body?` |
 | `dooray_get_task` | 업무 상세 조회 | `projectId`, `postId` |
 
-### 🔍 고급 검색 필터 옵션
+### 🔍 고급 검색 필터 옵션 (실제 Dooray API 명세)
 
 `dooray_search_tasks`에서 사용 가능한 필터들:
 
@@ -50,29 +50,42 @@ NHN Dooray 프로젝트 관리 서비스와 AI 어시스턴트를 연결해주�
   "projectId": "3177894036055830875",
   "page": 0,
   "size": 20,
-  "q": "버그 수정",
-  "status": "working",
-  "priority": "high",
-  "assigneeId": "사용자ID",
-  "createdAtFrom": "2024-01-01T00:00:00Z",
-  "createdAtTo": "2024-12-31T23:59:59Z",
-  "sort": "updatedAt",
-  "order": "desc"
+  "subjects": "버그 수정",
+  "postWorkflowClasses": "working",
+  "toMemberIds": "담당자ID",
+  "fromMemberIds": "작성자ID",
+  "tagIds": "태그ID1,태그ID2",
+  "milestoneIds": "마일스톤ID",
+  "createdAt": "today",
+  "updatedAt": "thisweek",
+  "dueAt": "next-7d",
+  "order": "-updatedAt"
 }
 ```
 
 #### 📊 필터 옵션 상세
 
 - **페이징**: `page` (0부터), `size` (최대 100)
-- **검색**: `q` (제목, 내용 키워드)
-- **상태**: `status` (`registered`, `working`, `closed`)
-- **우선순위**: `priority` (`urgent`, `high`, `normal`, `low`)
-- **담당자**: `assigneeId` (사용자 ID)
-- **마일스톤**: `milestoneId`
-- **태그**: `tagId`
-- **날짜 범위**: `createdAtFrom/To`, `updatedAtFrom/To` (ISO 8601 형식)
-- **정렬**: `sort` (`createdAt`, `updatedAt`, `priority`, `dueDate`)
-- **정렬 순서**: `order` (`asc`, `desc`)
+- **멤버 필터**:
+  - `fromMemberIds`: 작성자 멤버 ID (쉼표로 구분)
+  - `toMemberIds`: 담당자 멤버 ID (쉼표로 구분)
+  - `ccMemberIds`: 참조자 멤버 ID (쉼표로 구분)
+  - `fromEmailAddress`: 작성자 이메일 주소
+- **업무 분류**:
+  - `subjects`: 업무 제목으로 필터
+  - `postWorkflowClasses`: 워크플로우 상태 (`backlog`, `registered`, `working`, `closed`)
+  - `postWorkflowIds`: 프로젝트별 워크플로우 ID
+  - `tagIds`: 태그 ID (쉼표로 구분)
+  - `milestoneIds`: 마일스톤 ID (쉼표로 구분)
+- **계층 구조**:
+  - `parentPostId`: 상위 업무 ID (하위 업무 조회)
+  - `postNumber`: 특정 업무 번호
+- **날짜 필터** (특별한 DATE_PATTERN 지원):
+  - `createdAt`: 생성시간 필터
+  - `updatedAt`: 수정시간 필터
+  - `dueAt`: 만기시간 필터
+  - **패턴**: `today`, `thisweek`, `prev-3d`, `next-7d`, `2024-01-01T00:00:00+09:00~2024-01-10T00:00:00+09:00`
+- **정렬**: `order` (`postDueAt`, `postUpdatedAt`, `createdAt` - 역순은 앞에 `-` 붙임)
 
 ## 📦 설치 방법
 
@@ -158,11 +171,20 @@ DOORAY_ALLOWED_TASK_IDS=4119047429224778951,4119052943644031705
 
 ### 🆕 고급 검색 예시
 ```
-프로젝트 3177894036055830875에서 '버그'라는 키워드가 들어간 진행중인 업무를 찾아줘
+프로젝트 3177894036055830875에서 제목에 '버그'가 들어간 진행중인 업무를 찾아줘
+→ subjects="버그", postWorkflowClasses="working"
 
-상태가 'working'이고 우선순위가 'high'인 업무들을 최신순으로 보여줘
+특정 담당자의 업무들을 최신순으로 보여줘
+→ toMemberIds="멤버ID", order="-updatedAt"
 
-2024년 1월 이후 생성된 완료된 업무들을 페이지 1에서 50개씩 보여줘
+오늘 생성된 완료된 업무들을 50개씩 보여줘
+→ createdAt="today", postWorkflowClasses="closed", size=50
+
+이번 주에 수정된 업무들을 만기일 순으로 보여줘
+→ updatedAt="thisweek", order="postDueAt"
+
+지난 7일간 생성된 특정 마일스톤의 업무들
+→ createdAt="prev-7d", milestoneIds="마일스톤ID"
 ```
 
 ### 페이징 예시
@@ -200,13 +222,14 @@ echo $DOORAY_ALLOWED_TASK_IDS
 node dist/index.js
 ```
 
-## 🚀 새로운 기능 (v1.1.0)
+## 🚀 새로운 기능 (v1.2.0)
 
-- ✅ **고급 태스크 검색**: 키워드, 상태, 우선순위 등 다양한 필터
-- ✅ **강화된 페이징**: 더 유연한 페이지 크기 설정
-- ✅ **날짜 범위 검색**: 생성일/수정일 기준 검색
-- ✅ **정렬 옵션**: 생성일, 수정일, 우선순위 등으로 정렬
-- ✅ **상세한 검색 결과**: 담당자, 우선순위, 내용 미리보기 포함
+- ✅ **실제 Dooray API 명세 적용**: 공식 API 문서와 100% 일치
+- ✅ **완전한 필터 지원**: 멤버별, 워크플로우별, 태그별, 마일스톤별 필터링
+- ✅ **특별한 날짜 패턴**: today, thisweek, prev-Nd, next-Nd 등 편리한 날짜 표현
+- ✅ **계층 구조 검색**: 상위/하위 업무 관계 기반 검색
+- ✅ **향상된 정렬**: postDueAt, postUpdatedAt 등 다양한 정렬 기준
+- ✅ **이메일 기반 필터**: 작성자 이메일 주소로 검색 가능
 
 ## 📄 라이센스
 
