@@ -27,26 +27,46 @@ type Task = z.infer<typeof TaskSchema>;
 
 export class DoorayApiClient {
   private client: AxiosInstance;
-  private baseUrl: string;
-  private token: string;
+  private allowedTaskIds: Set<string>;
+  private allowedProjectIds: Set<string>;
 
   constructor() {
-    // 환경변수에서 설정값 읽기
-    this.baseUrl = process.env.DOORAY_API_BASE_URL || 'https://api.dooray.com';
-    this.token = process.env.DOORAY_API_TOKEN || '';
-
-    if (!this.token) {
+    const apiToken = process.env.DOORAY_API_TOKEN;
+    const baseURL = process.env.DOORAY_API_BASE_URL || 'https://api.dooray.com';
+    
+    if (!apiToken) {
       throw new Error('DOORAY_API_TOKEN 환경변수가 설정되지 않았습니다.');
     }
 
+    // 허용된 태스크 ID 목록 로드 (쉼표로 구분)
+    const allowedIds = process.env.DOORAY_ALLOWED_TASK_IDS || '';
+    this.allowedTaskIds = new Set(allowedIds.split(',').map(id => id.trim()).filter(id => id));
+
+    // 허용된 프로젝트 ID 목록 로드 (쉼표로 구분)
+    const allowedProjectIds = process.env.DOORAY_ALLOWED_PROJECT_IDS || '';
+    this.allowedProjectIds = new Set(allowedProjectIds.split(',').map(id => id.trim()).filter(id => id));
+
     this.client = axios.create({
-      baseURL: this.baseUrl,
+      baseURL,
       headers: {
-        'Authorization': `dooray-api ${this.token}`,
+        'Authorization': `dooray-api ${apiToken}`,
         'Content-Type': 'application/json',
       },
-      timeout: 30000,
     });
+  }
+
+  /**
+   * 태스크 ID가 허용된 목록에 있는지 확인
+   */
+  private isTaskIdAllowed(taskId: string): boolean {
+    return this.allowedTaskIds.has(taskId);
+  }
+
+  /**
+   * 프로젝트 ID가 허용된 목록에 있는지 확인
+   */
+  private isProjectIdAllowed(projectId: string): boolean {
+    return this.allowedProjectIds.has(projectId);
   }
 
   /**
@@ -241,6 +261,17 @@ export class DoorayApiClient {
    */
   async createTask(projectId: string, subject: string, body?: string) {
     try {
+      // 보안 검증 1: 허용된 프로젝트 ID인지 확인
+      if (!this.isProjectIdAllowed(projectId)) {
+        throw new Error(`🔒 보안상 이 프로젝트(ID: ${projectId})에서는 업무를 생성할 수 없습니다. 허용된 프로젝트 ID가 아닙니다.`);
+      }
+
+      // 보안 검증 2: 허용된 태스크 ID가 명시적으로 설정되지 않은 경우 생성 불가
+      const allowedIdsEnv = process.env.DOORAY_ALLOWED_TASK_IDS || '';
+      if (allowedIdsEnv.trim() === '' || this.allowedTaskIds.size === 0) {
+        throw new Error('🔒 보안상 업무 생성이 제한되어 있습니다. DOORAY_ALLOWED_TASK_IDS 환경변수에 허용할 태스크 ID를 설정하세요.');
+      }
+
       const taskData: any = {
         subject,
       };
@@ -265,18 +296,25 @@ export class DoorayApiClient {
         content: [
           {
             type: 'text' as const,
-            text: `**새 업무가 생성되었습니다!**\n\n` +
-                  `**제목:** ${newTask.subject}\n` +
-                  `**번호:** #${newTask.number}\n` +
-                  `**ID:** ${newTask.id}\n` +
-                  `**완료상태:** ${newTask.closed ? '완료' : '진행중'}\n` +
-                  `**우선순위:** ${newTask.priority || 'N/A'}\n` +
-                  `**생성일:** ${new Date(newTask.createdAt).toLocaleDateString('ko-KR')}`
+            text: `**새 업무가 생성되었습니다!**\\n\\n` +
+                  `**제목:** ${newTask.subject}\\n` +
+                  `**번호:** #${newTask.number}\\n` +
+                  `**ID:** ${newTask.id}\\n` +
+                  `**완료상태:** ${newTask.closed ? '완료' : '진행중'}\\n` +
+                  `**프로젝트 ID:** ${projectId}\\n\\n` +
+                  `**⚠️ 중요:** 이 업무 ID(${newTask.id})를 허용 목록에 추가하세요!`
           }
         ]
       };
-    } catch (error) {
-      throw new Error(`업무 생성 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+    } catch (error: any) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `오류 발생: 업무 생성 실패: ${error.message}`
+          }
+        ]
+      };
     }
   }
 
@@ -285,6 +323,16 @@ export class DoorayApiClient {
    */
   async updateTask(projectId: string, postId: string, subject?: string, body?: string) {
     try {
+      // 보안 검증 1: 허용된 프로젝트 ID인지 확인
+      if (!this.isProjectIdAllowed(projectId)) {
+        throw new Error(`🔒 보안상 이 프로젝트(ID: ${projectId})에서는 업무를 수정할 수 없습니다. 허용된 프로젝트 ID가 아닙니다.`);
+      }
+
+      // 보안 검증 2: 허용된 태스크 ID인지 확인
+      if (!this.isTaskIdAllowed(postId)) {
+        throw new Error(`🔒 보안상 이 업무(ID: ${postId})는 수정할 수 없습니다. 허용된 태스크 ID가 아닙니다.`);
+      }
+
       const updateData: any = {};
       
       if (subject) {
@@ -312,10 +360,10 @@ export class DoorayApiClient {
           content: [
             {
               type: 'text' as const,
-              text: `**업무가 수정되었습니다!**\n\n` +
-                    `**프로젝트 ID:** ${projectId}\n` +
-                    `**업무 ID:** ${postId}\n` +
-                    `**수정 완료:** 업무가 성공적으로 업데이트되었습니다.`
+              text: `**✅ 업무가 성공적으로 수정되었습니다!**\\n\\n` +
+                    `**업무 ID:** ${postId}\\n` +
+                    `**프로젝트 ID:** ${projectId}\\n\\n` +
+                    `수정사항이 정상적으로 반영되었습니다.`
             }
           ]
         };
@@ -325,18 +373,24 @@ export class DoorayApiClient {
         content: [
           {
             type: 'text' as const,
-            text: `**업무가 수정되었습니다!**\n\n` +
-                  `**제목:** ${updatedTask.subject || 'N/A'}\n` +
-                  `**번호:** #${updatedTask.number || 'N/A'}\n` +
-                  `**ID:** ${updatedTask.id || postId}\n` +
-                  `**완료상태:** ${updatedTask.closed ? '완료' : '진행중'}\n` +
-                  `**우선순위:** ${updatedTask.priority || 'N/A'}\n` +
-                  `**수정일:** ${updatedTask.updatedAt ? new Date(updatedTask.updatedAt).toLocaleDateString('ko-KR') : '알 수 없음'}`
+            text: `**✅ 업무가 성공적으로 수정되었습니다!**\\n\\n` +
+                  `**제목:** ${updatedTask.subject || '제목 정보 없음'}\\n` +
+                  `**번호:** #${updatedTask.number || 'N/A'}\\n` +
+                  `**ID:** ${updatedTask.id || postId}\\n` +
+                  `**완료상태:** ${updatedTask.closed ? '완료' : '진행중'}\\n` +
+                  `**프로젝트 ID:** ${projectId}`
           }
         ]
       };
-    } catch (error) {
-      throw new Error(`업무 수정 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+    } catch (error: any) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `오류 발생: 업무 수정 실패: ${error.message}`
+          }
+        ]
+      };
     }
   }
 
