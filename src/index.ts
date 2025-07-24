@@ -57,9 +57,13 @@ function showHelp() {
   console.log('');
   console.log('사용 가능한 도구:');
   console.log('  • dooray_list_projects   Dooray 프로젝트 목록 조회');
+  console.log('  • dooray_search_projects 프로젝트 검색');
   console.log('  • dooray_get_project     프로젝트 상세 정보 조회');
-  console.log('  • dooray_list_tasks      프로젝트 업무 목록 조회');
+  console.log('  • dooray_list_tasks      프로젝트 업무 목록 조회 (페이징)');
+  console.log('  • dooray_search_tasks    업무 고급 검색 (필터링 + 페이징)');
   console.log('  • dooray_create_task     새 업무 생성');
+  console.log('  • dooray_update_task     기존 업무 수정');
+  console.log('  • dooray_get_task        업무 상세 정보 조회');
   console.log('');
   console.log('더 많은 정보: https://github.com/your-org/dooray-mcp-server');
 }
@@ -175,7 +179,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'dooray_list_tasks',
-        description: '특정 프로젝트의 업무 목록을 가져옵니다',
+        description: '특정 프로젝트의 업무 목록을 가져옵니다 (간단한 페이징 지원)',
         inputSchema: {
           type: 'object',
           properties: {
@@ -183,9 +187,87 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: 'string',
               description: '업무를 조회할 프로젝트 ID',
             },
+            page: {
+              type: 'number',
+              description: '페이지 번호 (0부터 시작, 기본값: 0)',
+            },
+            size: {
+              type: 'number',
+              description: '페이지 크기 (기본값: 20, 최대: 100)',
+            },
+          },
+          required: ['projectId'],
+        },
+      },
+      {
+        name: 'dooray_search_tasks',
+        description: '프로젝트의 태스크를 고급 필터링과 페이징으로 검색합니다',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            projectId: {
+              type: 'string',
+              description: '태스크를 검색할 프로젝트 ID',
+            },
+            page: {
+              type: 'number',
+              description: '페이지 번호 (0부터 시작, 기본값: 0)',
+            },
+            size: {
+              type: 'number',
+              description: '페이지 크기 (기본값: 20, 최대: 100)',
+            },
+            q: {
+              type: 'string',
+              description: '검색 키워드 (제목, 내용 검색)',
+            },
+            assigneeId: {
+              type: 'string',
+              description: '담당자 ID',
+            },
             status: {
               type: 'string',
-              description: '업무 상태 (open, closed)',
+              description: '상태 (registered, working, closed)',
+              enum: ['registered', 'working', 'closed'],
+            },
+            priority: {
+              type: 'string',
+              description: '우선순위 (urgent, high, normal, low)',
+              enum: ['urgent', 'high', 'normal', 'low'],
+            },
+            milestoneId: {
+              type: 'string',
+              description: '마일스톤 ID',
+            },
+            tagId: {
+              type: 'string',
+              description: '태그 ID',
+            },
+            createdAtFrom: {
+              type: 'string',
+              description: '생성일 시작 (ISO 8601 형식, 예: 2024-01-01T00:00:00Z)',
+            },
+            createdAtTo: {
+              type: 'string',
+              description: '생성일 종료 (ISO 8601 형식, 예: 2024-12-31T23:59:59Z)',
+            },
+            updatedAtFrom: {
+              type: 'string',
+              description: '수정일 시작 (ISO 8601 형식)',
+            },
+            updatedAtTo: {
+              type: 'string',
+              description: '수정일 종료 (ISO 8601 형식)',
+            },
+            sort: {
+              type: 'string',
+              description: '정렬 기준 (createdAt, updatedAt, priority, dueDate)',
+              enum: ['createdAt', 'updatedAt', 'priority', 'dueDate'],
+            },
+            order: {
+              type: 'string',
+              description: '정렬 순서 (asc, desc)',
+              enum: ['asc', 'desc'],
             },
           },
           required: ['projectId'],
@@ -288,8 +370,31 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
         }
         return await doorayClient.listTasks(
           args.projectId as string,
-          args.status as string
+          args.page as number || 0,
+          args.size as number || 20
         );
+
+      case 'dooray_search_tasks':
+        if (!args?.projectId) {
+          throw new Error('projectId가 필요합니다');
+        }
+        const filters = {
+          page: args.page as number,
+          size: args.size as number,
+          q: args.q as string,
+          assigneeId: args.assigneeId as string,
+          status: args.status as 'registered' | 'working' | 'closed',
+          priority: args.priority as 'urgent' | 'high' | 'normal' | 'low',
+          milestoneId: args.milestoneId as string,
+          tagId: args.tagId as string,
+          createdAtFrom: args.createdAtFrom as string,
+          createdAtTo: args.createdAtTo as string,
+          updatedAtFrom: args.updatedAtFrom as string,
+          updatedAtTo: args.updatedAtTo as string,
+          sort: args.sort as 'createdAt' | 'updatedAt' | 'priority' | 'dueDate',
+          order: args.order as 'asc' | 'desc',
+        };
+        return await doorayClient.searchTasks(args.projectId as string, filters);
 
       case 'dooray_create_task':
         if (!args?.projectId || !args?.subject) {

@@ -1,6 +1,6 @@
 {
   "name": "dooray-mcp-server",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "두레이(Dooray) API와 연동되는 MCP(Model Context Protocol) 서버. 프로젝트 조회, 업무 생성/수정/조회 기능을 제공하며, 보안 기능이 내장되어 있습니다.",
   "main": "dist/index.js",
   "type": "module",
